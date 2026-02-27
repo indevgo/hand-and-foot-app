@@ -1,0 +1,23 @@
+{
+  "short_name": "HF Scorer",
+  "name": "Hand & Foot Ultimate Scorer",
+  "icons": [
+    {
+      "src": "https://your-icon-link-here.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "https://your-icon-link-here.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": ".",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#312e81",
+  "background_color": "#0f172a"
+}

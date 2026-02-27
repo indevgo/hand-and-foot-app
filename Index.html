@@ -1,0 +1,247 @@
+
+<!DOCTYPE html>
+<html lang="en" class="hide-scrollbar">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Hand & Foot Ultimate | Pro Scorer</title>
+    <meta name="description" content="Professional score tracker for Hand and Foot. Features custom rules, dark mode, and PWA support.">
+    
+    <link rel="manifest" href="manifest.json">
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <script>
+        tailwind.config = { darkMode: 'class' }
+    </script>
+    <style>
+        body { -webkit-tap-highlight-color: transparent; scroll-behavior: smooth; }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+    </style>
+</head>
+<body class="bg-slate-100 dark:bg-slate-900 transition-colors duration-300">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        const getSaved = (key, fallback) => {
+            const saved = localStorage.getItem(key);
+            try { return saved ? JSON.parse(saved) : fallback; } catch (e) { return fallback; }
+        };
+
+        const App = () => {
+            const [view, setView] = useState('game');
+            const [isMenuOpen, setIsMenuOpen] = useState(false);
+            const [darkMode, setDarkMode] = useState(() => getSaved('hf_darkMode', false));
+            const [scoreDisplayMode, setScoreDisplayMode] = useState(() => getSaved('hf_display', 'target'));
+            const [targetScore, setTargetScore] = useState(() => getSaved('hf_target', 10000));
+            const [pointValues, setPointValues] = useState(() => getSaved('hf_basePoints', { clean: 500, dirty: 300, outBonus: 100 }));
+            const [customGenerators, setCustomGenerators] = useState(() => getSaved('hf_generators', [
+                { id: 'wild', label: 'Wild Book', value: 1500 },
+                { id: 'sevens', label: 'Sevens Book', value: 2500 }
+            ]));
+
+            const [history, setHistory] = useState(() => getSaved('hf_history', []));
+            const [winningTeamId, setWinningTeamId] = useState(null);
+            const [teams, setTeams] = useState(() => getSaved('hf_teams', [
+                { id: 1, name: 'Team 1', clean: 0, dirty: 0, cards: 0, custom: {} },
+                { id: 2, name: 'Team 2', clean: 0, dirty: 0, cards: 0, custom: {} },
+            ]));
+
+            useEffect(() => {
+                localStorage.setItem('hf_darkMode', JSON.stringify(darkMode));
+                localStorage.setItem('hf_display', JSON.stringify(scoreDisplayMode));
+                localStorage.setItem('hf_target', JSON.stringify(targetScore));
+                localStorage.setItem('hf_history', JSON.stringify(history));
+                localStorage.setItem('hf_teams', JSON.stringify(teams));
+                localStorage.setItem('hf_generators', JSON.stringify(customGenerators));
+                localStorage.setItem('hf_basePoints', JSON.stringify(pointValues));
+                document.documentElement.classList.toggle('dark', darkMode);
+            }, [darkMode, scoreDisplayMode, targetScore, history, teams, customGenerators, pointValues]);
+
+            const handleShare = async () => {
+                try {
+                    await navigator.share({
+                        title: 'Hand & Foot Ultimate',
+                        text: 'Score our game with this pro app!',
+                        url: window.location.href
+                    });
+                } catch (err) { console.log('Share failed', err); }
+            };
+
+            const calculateTeamRound = (team) => {
+                let score = (Number(team.clean) * pointValues.clean) + (Number(team.dirty) * pointValues.dirty) + (Number(team.cards) || 0);
+                customGenerators.forEach(gen => { score += (Number(team.custom[gen.id]) || 0) * gen.value; });
+                if (winningTeamId === team.id) score += pointValues.outBonus;
+                return score;
+            };
+
+            const getGrandTotal = (teamName) => {
+                return history.reduce((sum, round) => {
+                    const teamData = round.data.find(d => d.name === teamName);
+                    return sum + (teamData ? teamData.score : 0);
+                }, 0);
+            };
+
+            const saveRound = () => {
+                const roundData = teams.map(t => ({ name: t.name, score: calculateTeamRound(t) }));
+                setHistory([...history, { round: history.length + 1, data: roundData }]);
+                setTeams(teams.map(t => ({ ...t, clean: 0, dirty: 0, cards: 0, custom: {} })));
+                setWinningTeamId(null);
+                window.scrollTo(0,0);
+            };
+
+            return (
+                <div className="min-h-screen flex flex-col font-sans">
+                    <header className="bg-indigo-900 text-white p-5 flex justify-between items-center sticky top-0 z-50 shadow-lg">
+                        <button onClick={() => setIsMenuOpen(true)} className="text-2xl p-2">☰</button>
+                        <h1 className="font-black italic text-xs tracking-[0.3em]">HAND & FOOT</h1>
+                        <button onClick={handleShare} className="p-2 text-xl">📤</button>
+                    </header>
+
+                    {isMenuOpen && (
+                        <div className="fixed inset-0 z-[100] flex animate-in slide-in-from-left duration-300">
+                            <div className="bg-white dark:bg-slate-900 w-72 h-full shadow-2xl p-8 flex flex-col space-y-6">
+                                <button onClick={() => setIsMenuOpen(false)} className="text-slate-400 font-black text-left uppercase text-[10px]">✕ Close</button>
+                                <nav className="flex flex-col space-y-5 font-black text-xl dark:text-white italic">
+                                    <button onClick={() => { setView('game'); setIsMenuOpen(false); }}>🎮 SCORER</button>
+                                    <button onClick={() => { setView('settings'); setIsMenuOpen(false); }}>⚙️ SETTINGS</button>
+                                    <button onClick={() => { setView('rules'); setIsMenuOpen(false); }}>📜 RULES</button>
+                                    <button onClick={() => { setView('about'); setIsMenuOpen(false); }}>👨‍💻 CREATOR</button>
+                                    <button onClick={() => { setView('privacy'); setIsMenuOpen(false); }}>⚖️ PRIVACY</button>
+                                </nav>
+                                <a href="https://www.buymeacoffee.com/YOUR_USERNAME" target="_blank" className="bg-[#FFDD00] text-black font-bold p-3 rounded-xl flex items-center justify-center gap-2 text-sm mt-4">
+                                    ☕ Buy me a coffee
+                                </a>
+                            </div>
+                            <div className="flex-1 bg-black/60 backdrop-blur-sm" onClick={() => setIsMenuOpen(false)}></div>
+                        </div>
+                    )}
+
+                    <main className="flex-1 max-w-lg mx-auto w-full pb-44">
+                        {view === 'game' && (
+                            <div className="p-4 space-y-4">
+                                <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-md border-b-4 border-indigo-500 transition-all">
+                                    <h2 className="text-[10px] font-black text-slate-400 uppercase mb-3">Live Standings</h2>
+                                    {teams.map(t => {
+                                        const total = getGrandTotal(t.name);
+                                        const leaderTotal = Math.max(...teams.map(tm => getGrandTotal(tm.name)));
+                                        return (
+                                            <div key={t.id} className="flex justify-between items-center mb-2">
+                                                <span className="dark:text-white font-bold">{t.name}</span>
+                                                <div className="text-right">
+                                                    <div className="font-black text-indigo-600 dark:text-indigo-400 text-lg">{total.toLocaleString()}</div>
+                                                    <div className="text-[9px] text-slate-400 font-bold uppercase">
+                                                        {scoreDisplayMode === 'target' ? `${(targetScore - total).toLocaleString()} TO WIN` : (total < leaderTotal ? `${(leaderTotal - total).toLocaleString()} BEHIND` : '👑 LEADER')}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                                {teams.map((team, idx) => (
+                                    <div key={team.id} className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+                                        <div className="flex justify-between mb-4">
+                                            <input className="bg-transparent font-black text-slate-800 dark:text-white w-1/2 outline-none" value={team.name} onChange={(e) => {
+                                                const nt = [...teams]; nt[idx].name = e.target.value; setTeams(nt);
+                                            }} />
+                                            <button onClick={() => setWinningTeamId(team.id === winningTeamId ? null : team.id)} className={`text-[10px] px-4 py-1.5 rounded-full font-black ${winningTeamId === team.id ? 'bg-green-500 text-white shadow-lg shadow-green-500/30' : 'bg-slate-100 dark:bg-slate-700 text-slate-400'}`}>OUT BONUS</button>
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-3 text-[10px] font-bold uppercase text-slate-500">
+                                            <div className="space-y-1">
+                                                <label>Clean Books ({pointValues.clean})</label>
+                                                <input type="number" inputMode="numeric" className="w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-900 dark:text-white border-none focus:ring-2 ring-indigo-500 outline-none" value={team.clean || ''} onChange={(e) => { const nt = [...teams]; nt[idx].clean = e.target.value; setTeams(nt); }} placeholder="0" />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <label>Dirty Books ({pointValues.dirty})</label>
+                                                <input type="number" inputMode="numeric" className="w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-900 dark:text-white border-none focus:ring-2 ring-indigo-500 outline-none" value={team.dirty || ''} onChange={(e) => { const nt = [...teams]; nt[idx].dirty = e.target.value; setTeams(nt); }} placeholder="0" />
+                                            </div>
+                                            {customGenerators.map(gen => (
+                                                <div key={gen.id} className="space-y-1">
+                                                    <label>{gen.label} ({gen.value})</label>
+                                                    <input type="number" inputMode="numeric" className="w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-900 dark:text-white border-none focus:ring-2 ring-indigo-500 outline-none" value={team.custom[gen.id] || ''} onChange={(e) => { const nt = [...teams]; nt[idx].custom = { ...nt[idx].custom, [gen.id]: e.target.value }; setTeams(nt); }} placeholder="0" />
+                                                </div>
+                                            ))}
+                                            <div className="space-y-1 col-span-2">
+                                                <label>Remaining Card Pts (Sum)</label>
+                                                <input type="number" inputMode="numeric" className="w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-900 dark:text-white border-none focus:ring-2 ring-indigo-500 outline-none" value={team.cards || ''} onChange={(e) => { const nt = [...teams]; nt[idx].cards = e.target.value; setTeams(nt); }} placeholder="0" />
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                                <button onClick={saveRound} className="w-full bg-indigo-600 text-white font-black py-5 rounded-2xl shadow-xl shadow-indigo-500/20 active:scale-95 transition-transform">SAVE ROUND {history.length + 1}</button>
+                            </div>
+                        )}
+
+                        {view === 'settings' && (
+                            <div className="p-6 space-y-6 dark:text-white">
+                                <h2 className="text-xl font-black italic">APP SETTINGS</h2>
+                                <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl space-y-4">
+                                    <button onClick={() => setDarkMode(!darkMode)} className="w-full py-3 bg-slate-100 dark:bg-slate-700 rounded-xl font-bold text-xs">{darkMode ? '🌙 DARK MODE' : '☀️ LIGHT MODE'}</button>
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-bold text-slate-400">DASHBOARD VIEW</label>
+                                        <select className="w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-900 font-bold" value={scoreDisplayMode} onChange={(e) => setScoreDisplayMode(e.target.value)}>
+                                            <option value="target">Points to Target</option>
+                                            <option value="behind">Points Behind Leader</option>
+                                        </select>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-bold text-slate-400">WINNING SCORE TARGET</label>
+                                        <input type="number" className="w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-900 font-bold outline-none focus:ring-2 ring-indigo-500" value={targetScore} onChange={(e) => setTargetScore(parseInt(e.target.value))} />
+                                    </div>
+                                </div>
+                                <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl space-y-4">
+                                    <div className="flex justify-between items-center">
+                                        <h3 className="font-bold text-sm italic">CUSTOM POINT RULES</h3>
+                                        <button onClick={() => {
+                                            const l = prompt("Enter Label (e.g. Red Book):");
+                                            const v = parseInt(prompt("Enter Points:"));
+                                            if(l && v) setCustomGenerators([...customGenerators, {id: Date.now(), label: l, value: v}]);
+                                        }} className="bg-indigo-600 text-white text-[9px] px-3 py-1.5 rounded-full font-black tracking-widest uppercase">+ ADD NEW</button>
+                                    </div>
+                                    <div className="space-y-2">
+                                        {customGenerators.map(g => (
+                                            <div key={g.id} className="flex justify-between items-center p-3 bg-slate-50 dark:bg-slate-900 rounded-xl">
+                                                <span className="text-sm font-medium italic">{g.label}</span>
+                                                <span className="font-black text-indigo-500">{g.value.toLocaleString()}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                                <button onClick={() => { if(confirm("Erase all current game scores?")) { setHistory([]); setTeams(teams.map(t => ({...t, clean: 0, dirty: 0, cards: 0, custom: {}}))); setView('game'); } }} className="w-full py-4 text-red-500 font-black text-[10px] tracking-[0.2em] border-2 border-red-500/20 rounded-2xl">RESET CURRENT GAME</button>
+                            </div>
+                        )}
+
+                        {view === 'rules' && (
+                            <div className="p-8 prose dark:prose-invert">
+                                <h2 className="font-black italic dark:text-white text-2xl">GAME RULES</h2>
+                                <p className="text-sm dark:text-slate-400 leading-relaxed">Hand and Foot is a variant of Canasta using 5 or 6 decks of cards. Each player is dealt a 'Hand' (13 cards) and a 'Foot' (13 cards).</p>
+                                <h4 className="font-bold mt-6 dark:text-white uppercase text-xs tracking-widest">Key Scoring Mechanics</h4>
+                                <ul className="text-xs space-y-3 font-bold dark:text-slate-300 ml-4 list-disc">
+                                    <li>CLEAN BOOK: 7 of a kind with NO wild cards. High point value.</li>
+                                    <li>DIRTY BOOK: 7 of a kind with 1-3 wild cards (2s or Jokers).</li>
+                                    <li>GOING OUT: You must play your Hand, then your Foot. To go out, you must have completed the minimum required books.</li>
+                                </ul>
+                            </div>
+                        )}
+
+                        {view === 'about' && (
+                            <div className="p-8 text-center space-y-6">
+                                <div className="w-20 h-20 bg-indigo-500 rounded-3xl rotate-12 mx-auto flex items-center justify-center shadow-lg shadow-indigo-500/30">
+                                    <span className="text-3xl">📱</span>
+                                </div>
+                                <h2 className="font-black text-2xl dark:text-white italic uppercase tracking-widest">The Creator</h2>
+                                <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed italic">"Hand & Foot Ultimate was developed by a dedicated independent developer to modernize the traditional card game experience. My goal was to eliminate the need for paper scoring while providing advanced analytics like 'points-to-target' and fully customizable house rules. Built with a focus on accessibility and performance, this app ensures that players can focus on the game, not the math."</p>
+                                <a href="https://www.buymeacoffee.com/YOUR_USERNAME" target="_blank" className="inline-block bg-[#FFDD00] text-black px-8 py-4 rounded-2xl font-black text-sm shadow-xl transition-transform active:scale-95">☕ BUY ME A COFFEE</a>
+                            </div>
+                        )}
+
+                        {view === 'privacy' && (
+                            <div className="p-8 text-[11px] text-slate-500 dark:text-slate-400 space-y-6">
+                                <h2 className="font-black text-xl dark:text-white tracking-widest uppercase italic">Privacy & Cookies</h2>
+                                <p><strong>Local Storage:</strong> This app stores game state on your

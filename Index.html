@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en" class="hide-scrollbar">
 <head>
@@ -8,6 +7,7 @@
     <meta name="description" content="Professional score tracker for Hand and Foot. Features custom rules, dark mode, and PWA support.">
     
     <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#312e81">
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
@@ -236,7 +236,7 @@
                                     <span className="text-3xl">📱</span>
                                 </div>
                                 <h2 className="font-black text-2xl dark:text-white italic uppercase tracking-widest">The Creator</h2>
-                                <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed italic">"Hand & Foot Ultimate was developed by a dedicated independent developer to modernize the traditional card game experience. My goal was to eliminate the need for paper scoring while providing advanced analytics like 'points-to-target' and fully customizable house rules. Built with a focus on accessibility and performance, this app ensures that players can focus on the game, not the math."</p>
+                                <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed italic">"Hand & Foot Ultimate was developed to eliminate the need for paper scoring while providing advanced analytics like 'points-to-target' and fully customizable house rules."</p>
                                 <a href="https://www.buymeacoffee.com/YOUR_USERNAME" target="_blank" className="inline-block bg-[#FFDD00] text-black px-8 py-4 rounded-2xl font-black text-sm shadow-xl transition-transform active:scale-95">☕ BUY ME A COFFEE</a>
                             </div>
                         )}
@@ -244,4 +244,25 @@
                         {view === 'privacy' && (
                             <div className="p-8 text-[11px] text-slate-500 dark:text-slate-400 space-y-6">
                                 <h2 className="font-black text-xl dark:text-white tracking-widest uppercase italic">Privacy & Cookies</h2>
-                                <p><strong>Local Storage:</strong> This app stores game state on your
+                                <p><strong>Local Storage:</strong> This app stores game state locally on your device.</p>
+                            </div>
+                        )}
+                    </main>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+
+        // Register Service Worker for Offline Use
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(reg => console.log('SW Registered'))
+                    .catch(err => console.log('SW Failed', err));
+            });
+        }
+    </script>
+</body>
+</html>

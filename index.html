@@ -5,8 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Hand & Foot Ultimate Scorer | Pro Card Game Tracker</title>
     
-    <meta name="description" content="Professional Hand and Foot card game scorecard. Track clean, dirty, wild, and 7s books. Custom scoring, exact draw bonuses, and round history.">
-    <meta name="keywords" content="Hand and Foot, card game scorer, card game rules, score tracker, clean book, dirty book, wild book, 7s book">
+    <meta name="description" content="Fully customizable Hand and Foot card game scorecard. Define custom book types, manage multiple teams, and track exact draw bonuses.">
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#312e81">
     
@@ -44,17 +43,24 @@
             const [isMenuOpen, setIsMenuOpen] = useState(false);
             const [darkMode, setDarkMode] = useState(() => getSaved('hf_darkMode', false));
             
-            // Re-incorporated point configuration with Wilds and 7s
+            // Standard point values
             const [pointValues, setPointValues] = useState(() => getSaved('hf_basePoints', { 
-                clean: 500, dirty: 300, wild: 1500, sevens: 2500, outBonus: 100, drawBonus: 100 
+                clean: 500, dirty: 300, outBonus: 100, drawBonus: 100 
             }));
+
+            // User-defined custom books (e.g., { name: 'Wilds', value: 1500 })
+            const [customBooks, setCustomBooks] = useState(() => getSaved('hf_customBooks', [
+                { id: 'b1', name: 'Wilds', value: 1500 },
+                { id: 'b2', name: '7s', value: 2500 }
+            ]));
 
             const [history, setHistory] = useState(() => getSaved('hf_history', []));
             const [winningTeamId, setWinningTeamId] = useState(null);
             
+            // Teams store their specific counts for custom books in an object: { b1: 0, b2: 0 }
             const [teams, setTeams] = useState(() => getSaved('hf_teams', [
-                { id: 1, name: 'Team 1', clean: 0, dirty: 0, wild: 0, sevens: 0, cards: 0, draws: 0 },
-                { id: 2, name: 'Team 2', clean: 0, dirty: 0, wild: 0, sevens: 0, cards: 0, draws: 0 },
+                { id: 1, name: 'Team 1', clean: 0, dirty: 0, cards: 0, draws: 0, customCounts: {} },
+                { id: 2, name: 'Team 2', clean: 0, dirty: 0, cards: 0, draws: 0, customCounts: {} },
             ]));
 
             useEffect(() => {
@@ -62,19 +68,34 @@
                 localStorage.setItem('hf_history', JSON.stringify(history));
                 localStorage.setItem('hf_teams', JSON.stringify(teams));
                 localStorage.setItem('hf_basePoints', JSON.stringify(pointValues));
+                localStorage.setItem('hf_customBooks', JSON.stringify(customBooks));
                 document.documentElement.classList.toggle('dark', darkMode);
-            }, [darkMode, history, teams, pointValues]);
+            }, [darkMode, history, teams, pointValues, customBooks]);
 
             const updateTeamCount = (count) => {
                 const newCount = Math.max(2, Math.min(5, count));
                 if (newCount > teams.length) {
                     const added = [];
                     for (let i = teams.length + 1; i <= newCount; i++) {
-                        added.push({ id: i, name: `Team ${i}`, clean: 0, dirty: 0, wild: 0, sevens: 0, cards: 0, draws: 0 });
+                        added.push({ id: i, name: `Team ${i}`, clean: 0, dirty: 0, cards: 0, draws: 0, customCounts: {} });
                     }
                     setTeams([...teams, ...added]);
                 } else if (newCount < teams.length) {
                     if (confirm("Delete the last team's data?")) setTeams(teams.slice(0, newCount));
+                }
+            };
+
+            const addCustomBook = () => {
+                const name = prompt("Enter Book Name (e.g., 'Aces'):");
+                const value = parseInt(prompt("Enter Point Value:"));
+                if (name && !isNaN(value)) {
+                    setCustomBooks([...customBooks, { id: 'b' + Date.now(), name, value }]);
+                }
+            };
+
+            const removeCustomBook = (id) => {
+                if(confirm("Remove this book type from all teams?")) {
+                    setCustomBooks(customBooks.filter(b => b.id !== id));
                 }
             };
 
@@ -84,13 +105,24 @@
                 setTeams(nt);
             };
 
+            const updateCustomCount = (teamIdx, bookId, val) => {
+                const nt = [...teams];
+                nt[teamIdx].customCounts = { ...nt[teamIdx].customCounts, [bookId]: val };
+                setTeams(nt);
+            };
+
             const calculateTeamRound = (team) => {
                 let score = (Number(team.clean) * pointValues.clean) + 
                             (Number(team.dirty) * pointValues.dirty) + 
-                            (Number(team.wild) * pointValues.wild) +
-                            (Number(team.sevens) * pointValues.sevens) +
                             (Number(team.cards) || 0) +
                             (team.draws * pointValues.drawBonus);
+                
+                // Add scores from custom books
+                customBooks.forEach(book => {
+                    const count = team.customCounts[book.id] || 0;
+                    score += (Number(count) * book.value);
+                });
+
                 if (winningTeamId === team.id) score += pointValues.outBonus;
                 return score;
             };
@@ -105,14 +137,14 @@
             const saveRound = () => {
                 const roundData = teams.map(t => ({ name: t.name, score: calculateTeamRound(t) }));
                 setHistory([...history, { round: history.length + 1, data: roundData }]);
-                setTeams(teams.map(t => ({ ...t, clean: 0, dirty: 0, wild: 0, sevens: 0, cards: 0, draws: 0 })));
+                setTeams(teams.map(t => ({ ...t, clean: 0, dirty: 0, cards: 0, draws: 0, customCounts: {} })));
                 setWinningTeamId(null);
                 window.scrollTo(0,0);
             };
 
             return (
                 <div className="min-h-screen flex flex-col font-sans ad-padding">
-                    <header className="bg-indigo-900 text-white p-5 flex justify-between items-center sticky top-0 z-50">
+                    <header className="bg-indigo-900 text-white p-5 flex justify-between items-center sticky top-0 z-50 shadow-md">
                         <button onClick={() => setIsMenuOpen(true)} className="text-2xl p-2">☰</button>
                         <h1 className="font-black italic text-xs tracking-[0.3em] cursor-pointer" onClick={() => setView('game')}>HAND & FOOT</h1>
                         <button onClick={() => setView('history')} className="p-2 text-xl">📊</button>
@@ -128,9 +160,6 @@
                                     <button onClick={() => { setView('rules'); setIsMenuOpen(false); }}>📜 RULES</button>
                                     <button onClick={() => { setView('settings'); setIsMenuOpen(false); }}>⚙️ SETTINGS</button>
                                 </nav>
-                                <div className="pt-10 border-t dark:border-slate-800 flex flex-col space-y-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-left">
-                                    <button onClick={() => { setView('privacy'); setIsMenuOpen(false); }}>Privacy Policy</button>
-                                </div>
                             </div>
                             <div className="flex-1 bg-black/60 backdrop-blur-sm" onClick={() => setIsMenuOpen(false)}></div>
                         </div>
@@ -140,7 +169,7 @@
                         {view === 'game' && (
                             <div className="space-y-4 animate-pop">
                                 <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-md border-b-4 border-indigo-500">
-                                    <h2 className="text-[10px] font-black text-slate-400 uppercase mb-3 text-center tracking-widest">Global Standings</h2>
+                                    <h2 className="text-[10px] font-black text-slate-400 uppercase mb-3 text-center tracking-widest text-left px-2">Global Standings</h2>
                                     {teams.map(t => (
                                         <div key={t.id} className="flex justify-between items-center mb-2 border-b border-slate-50 dark:border-slate-700 pb-1 px-2">
                                             <span className="dark:text-white font-bold">{t.name}</span>
@@ -156,37 +185,38 @@
                                             <div className="flex gap-1 items-center">
                                                 <span className="text-[8px] font-bold text-slate-400 uppercase italic mr-1">Draws</span>
                                                 {[1, 2].map(num => (
-                                                    <button key={num} onClick={() => {
-                                                        const count = team.draws === num ? 0 : num;
-                                                        updateTeamVal(idx, 'draws', count);
-                                                    }} className={`w-7 h-7 rounded-full text-[10px] font-black ${team.draws >= num ? 'bg-indigo-500 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-400'}`}>
+                                                    <button key={num} onClick={() => updateTeamVal(idx, 'draws', team.draws === num ? 0 : num)} 
+                                                        className={`w-7 h-7 rounded-full text-[10px] font-black ${team.draws >= num ? 'bg-indigo-500 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-400'}`}>
                                                         {num}
                                                     </button>
                                                 ))}
-                                                <button onClick={() => setWinningTeamId(team.id === winningTeamId ? null : team.id)} className={`ml-2 px-3 py-1.5 rounded-full text-[9px] font-black ${winningTeamId === team.id ? 'bg-green-500 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-400'}`}>OUT</button>
+                                                <button onClick={() => setWinningTeamId(team.id === winningTeamId ? null : team.id)} className={`ml-2 px-3 py-1.5 rounded-full text-[9px] font-black ${winningTeamId === team.id ? 'bg-green-500 text-white shadow-lg' : 'bg-slate-100 dark:bg-slate-700 text-slate-400'}`}>OUT</button>
                                             </div>
                                         </div>
 
                                         <div className="grid grid-cols-2 gap-3">
                                             <div className="space-y-1">
-                                                <label className="text-[9px] font-bold text-slate-400 uppercase italic px-1">Clean (500)</label>
+                                                <label className="text-[9px] font-bold text-slate-400 uppercase italic px-1">Clean ({pointValues.clean})</label>
                                                 <input type="number" inputMode="numeric" className="w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-900 dark:text-white outline-none focus:ring-2 ring-indigo-500" value={team.clean || ''} onChange={(e) => updateTeamVal(idx, 'clean', e.target.value)} placeholder="0" />
                                             </div>
                                             <div className="space-y-1">
-                                                <label className="text-[9px] font-bold text-slate-400 uppercase italic px-1">Dirty (300)</label>
+                                                <label className="text-[9px] font-bold text-slate-400 uppercase italic px-1">Dirty ({pointValues.dirty})</label>
                                                 <input type="number" inputMode="numeric" className="w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-900 dark:text-white outline-none focus:ring-2 ring-indigo-500" value={team.dirty || ''} onChange={(e) => updateTeamVal(idx, 'dirty', e.target.value)} placeholder="0" />
                                             </div>
-                                            <div className="space-y-1">
-                                                <label className="text-[9px] font-bold text-slate-400 uppercase italic px-1">Wild ({pointValues.wild})</label>
-                                                <input type="number" inputMode="numeric" className="w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-900 dark:text-white outline-none focus:ring-2 ring-indigo-500" value={team.wild || ''} onChange={(e) => updateTeamVal(idx, 'wild', e.target.value)} placeholder="0" />
-                                            </div>
-                                            <div className="space-y-1">
-                                                <label className="text-[9px] font-bold text-slate-400 uppercase italic px-1">7s ({pointValues.sevens})</label>
-                                                <input type="number" inputMode="numeric" className="w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-900 dark:text-white outline-none focus:ring-2 ring-indigo-500" value={team.sevens || ''} onChange={(e) => updateTeamVal(idx, 'sevens', e.target.value)} placeholder="0" />
-                                            </div>
+                                            
+                                            {/* Dynamic Custom Book Inputs */}
+                                            {customBooks.map(book => (
+                                                <div key={book.id} className="space-y-1">
+                                                    <label className="text-[9px] font-bold text-slate-400 uppercase italic px-1 truncate block">{book.name} ({book.value})</label>
+                                                    <input type="number" inputMode="numeric" className="w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-900 dark:text-white outline-none focus:ring-2 ring-indigo-500 border border-indigo-500/10" 
+                                                        value={team.customCounts[book.id] || ''} 
+                                                        onChange={(e) => updateCustomCount(idx, book.id, e.target.value)} placeholder="0" />
+                                                </div>
+                                            ))}
+
                                             <div className="space-y-1 col-span-2">
-                                                <label className="text-[9px] font-bold text-slate-400 uppercase italic px-1">Card Point Total</label>
-                                                <input type="number" inputMode="numeric" className="w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-900 dark:text-white outline-none focus:ring-2 ring-indigo-500" value={team.cards || ''} onChange={(e) => updateTeamVal(idx, 'cards', e.target.value)} placeholder="Sum of face values" />
+                                                <label className="text-[9px] font-bold text-slate-400 uppercase italic px-1">Total Face Value Points</label>
+                                                <input type="number" inputMode="numeric" className="w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-900 dark:text-white outline-none focus:ring-2 ring-indigo-500" value={team.cards || ''} onChange={(e) => updateTeamVal(idx, 'cards', e.target.value)} placeholder="0" />
                                             </div>
                                         </div>
                                     </div>
@@ -197,28 +227,39 @@
 
                         {view === 'settings' && (
                             <div className="space-y-6 dark:text-white animate-pop text-left">
-                                <h2 className="text-xl font-black italic uppercase">Scoring Config</h2>
-                                <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl space-y-4 shadow-md">
+                                <h2 className="text-xl font-black italic uppercase">Settings</h2>
+                                
+                                <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl space-y-6 shadow-md">
+                                    {/* Core Bonuses */}
                                     <div className="grid grid-cols-2 gap-4">
-                                        <div>
+                                        <div className="space-y-1">
                                             <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Exact Draw</label>
                                             <input type="number" className="w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-900 font-black text-indigo-500 border dark:border-slate-700" 
                                                 value={pointValues.drawBonus} onChange={(e) => setPointValues({...pointValues, drawBonus: parseInt(e.target.value) || 0})} />
                                         </div>
-                                        <div>
+                                        <div className="space-y-1">
                                             <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Out Bonus</label>
                                             <input type="number" className="w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-900 font-black text-indigo-500 border dark:border-slate-700" 
                                                 value={pointValues.outBonus} onChange={(e) => setPointValues({...pointValues, outBonus: parseInt(e.target.value) || 0})} />
                                         </div>
-                                        <div>
-                                            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Wild Book</label>
-                                            <input type="number" className="w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-900 font-black text-indigo-500 border dark:border-slate-700" 
-                                                value={pointValues.wild} onChange={(e) => setPointValues({...pointValues, wild: parseInt(e.target.value) || 0})} />
+                                    </div>
+
+                                    {/* Dynamic Custom Books Manager */}
+                                    <div className="border-t dark:border-slate-700 pt-4">
+                                        <div className="flex justify-between items-center mb-4">
+                                            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Manage Book Types</label>
+                                            <button onClick={addCustomBook} className="bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 px-3 py-1 rounded-full text-[10px] font-black">+ ADD BOOK</button>
                                         </div>
-                                        <div>
-                                            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">7s Book</label>
-                                            <input type="number" className="w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-900 font-black text-indigo-500 border dark:border-slate-700" 
-                                                value={pointValues.sevens} onChange={(e) => setPointValues({...pointValues, sevens: parseInt(e.target.value) || 0})} />
+                                        <div className="space-y-2">
+                                            {customBooks.map(book => (
+                                                <div key={book.id} className="flex items-center justify-between bg-slate-50 dark:bg-slate-900 p-3 rounded-xl border dark:border-slate-700">
+                                                    <div>
+                                                        <div className="font-black text-sm">{book.name}</div>
+                                                        <div className="text-[10px] text-slate-400 uppercase font-bold">{book.value} Points</div>
+                                                    </div>
+                                                    <button onClick={() => removeCustomBook(book.id)} className="text-red-500 p-2">✕</button>
+                                                </div>
+                                            ))}
                                         </div>
                                     </div>
                                     
@@ -230,7 +271,7 @@
                                             <button onClick={() => updateTeamCount(teams.length + 1)} className="w-10 h-10 font-black text-indigo-500">+</button>
                                         </div>
                                     </div>
-                                    <button onClick={() => setDarkMode(!darkMode)} className="w-full py-3 bg-indigo-500 text-white rounded-xl font-bold uppercase text-xs tracking-widest">Toggle {darkMode ? 'Light' : 'Dark'} Mode</button>
+                                    <button onClick={() => setDarkMode(!darkMode)} className="w-full py-3 bg-indigo-500 text-white rounded-xl font-bold uppercase text-xs tracking-widest shadow-lg">Toggle {darkMode ? 'Light' : 'Dark'} Mode</button>
                                 </div>
                                 <button onClick={() => { if(confirm("Erase all data?")) { setHistory([]); setView('game'); } }} className="w-full py-4 text-red-500 border-2 border-red-500/10 rounded-2xl font-black text-xs uppercase tracking-widest">Reset All Data</button>
                             </div>
@@ -238,22 +279,13 @@
 
                         {view === 'rules' && (
                             <div className="prose dark:text-slate-300 pb-10 animate-pop text-left">
-                                <h1 className="text-3xl font-black italic dark:text-white mb-6">Hand & Foot: Complete Guide</h1>
+                                <h1 className="text-3xl font-black italic dark:text-white mb-6">Hand & Foot Rules</h1>
                                 
-                                <p>Hand and Foot is a North American card game related to Canasta. This professional scorer handles 2-5 teams and includes advanced book types.</p>
-                                
-                                <h2>Advanced Book Types</h2>
-                                <p>While basic Clean (500) and Dirty (300) books are the standard, professional play often includes:</p>
-                                <ul className="list-disc ml-5 mb-4">
-                                    <li><strong>Wild Book:</strong> 7 cards consisting entirely of wild cards (Jokers and 2s). Standard: 1500 pts.</li>
-                                    <li><strong>7s Book:</strong> 7 cards of the number seven. Standard: 2500 pts. These are high-risk because they must be completed to score.</li>
-                                </ul>
-
-                                <h2>The Objective</h2>
-                                <p>Be the first team to play all cards from your Hand, then your Foot. A team "Goes Out" when they have completed the required number of books and empty their Foot.</p>
-                                
-                                <h2>Exact Draw Bonus</h2>
-                                <p>When picking up your Hand and Foot stacks from the tray, if a player picks up exactly the required number of cards in one grab, they earn an <strong>Exact Draw Bonus</strong>.</p>
+                                <p>Hand and Foot is a variant of Canasta played with multiple decks. It involves strategic melds and "going out" only after clearing both your Hand and Foot stacks.</p>
+                                <h2>Custom Scoring</h2>
+                                <p>Our Ultimate Scorer allows you to define your own house rules. Whether you play with high-value <strong>Wild Books</strong>, <strong>7s Books</strong>, or unique bonuses for <strong>Aces</strong>, you can configure them in the Settings tab.</p>
+                                <h2>Exact Draw</h2>
+                                <p>Earn bonus points for drawing exactly 13 cards for your Hand and 11 cards for your Foot in one go. Toggle these using the circle buttons next to each team name.</p>
                                 <button onClick={() => setView('game')} className="w-full py-4 mt-6 bg-indigo-600 text-white rounded-xl font-bold">Back to Scorer</button>
                             </div>
                         )}
@@ -276,15 +308,6 @@
                                         </div>
                                     )).reverse()
                                 )}
-                            </div>
-                        )}
-                        
-                        {view === 'privacy' && (
-                            <div className="prose dark:text-slate-300 pb-10 text-xs text-left">
-                                <h1 className="text-xl font-black dark:text-white mb-4 uppercase">Privacy Policy</h1>
-                                <p>This application stores all game data locally on your device via LocalStorage. We do not transmit your results to external servers.</p>
-                                <p><strong>Cookies:</strong> This site uses Google AdSense. Third-party vendors use cookies to serve ads based on prior visits. You can opt out via Google Ad Settings.</p>
-                                <button onClick={() => setView('game')} className="mt-6 text-indigo-500 font-bold underline">Back</button>
                             </div>
                         )}
                     </main>

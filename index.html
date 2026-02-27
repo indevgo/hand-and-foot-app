@@ -73,11 +73,9 @@
                             (Number(team.dirty) * pointValues.dirty) + 
                             (Number(team.cards) || 0) +
                             (team.draws * pointValues.drawBonus);
-                
                 customBooks.forEach(book => {
                     score += (Number(team.customCounts[book.id] || 0) * book.value);
                 });
-
                 if (winningTeamId === team.id) score += pointValues.outBonus;
                 return score;
             };
@@ -91,7 +89,6 @@
                     const currentRoundScore = calculateTeamRound(team);
                     return { id: team.id, name: team.name, total: historicalTotal + currentRoundScore };
                 });
-                
                 const maxScore = Math.max(...totals.map(t => t.total));
                 return { totals, leadingScore: maxScore > 0 ? maxScore : null };
             }, [teams, history, pointValues, customBooks, winningTeamId]);
@@ -100,6 +97,15 @@
                 const nt = [...teams];
                 nt[idx][key] = val;
                 setTeams(nt);
+            };
+
+            const resetEntireGame = () => {
+                if (confirm("⚠️ CAUTION: This will delete ALL round history and current scores. Start a new match?")) {
+                    setHistory([]);
+                    setTeams(teams.map(t => ({ ...t, clean: 0, dirty: 0, cards: 0, draws: 0, customCounts: {} })));
+                    setWinningTeamId(null);
+                    setView('game');
+                }
             };
 
             return (
@@ -127,4 +133,137 @@
 
                     <main className="flex-1 max-w-lg mx-auto w-full p-4">
                         {view === 'game' && (
-                            <div className="space-y
+                            <div className="space-y-4 animate-pop">
+                                {/* LEADERBOARD */}
+                                <div className="grid grid-cols-2 gap-3 mb-6">
+                                    {liveStandings.totals.map(team => (
+                                        <div key={team.id} className={`p-3 rounded-2xl transition-all border-2 ${team.total === liveStandings.leadingScore && team.total !== 0 ? 'bg-amber-50 border-amber-400 dark:bg-amber-900/20 dark:border-amber-500/50 scale-105' : 'bg-white dark:bg-slate-800 border-transparent opacity-80'}`}>
+                                            <span className="text-[10px] font-black uppercase text-slate-500 block truncate">{team.name}</span>
+                                            <div className="text-xl font-black dark:text-white">{team.total.toLocaleString()}</div>
+                                        </div>
+                                    ))}
+                                </div>
+
+                                {teams.map((team, idx) => (
+                                    <div key={team.id} className="bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm space-y-4 text-left">
+                                        <div className="flex justify-between items-center">
+                                            <input className="bg-transparent font-black dark:text-white w-1/3 outline-none" value={team.name} onChange={(e) => updateTeamVal(idx, 'name', e.target.value)} />
+                                            <div className="flex gap-1 items-center">
+                                                {[1, 2].map(num => (
+                                                    <button key={num} onClick={() => updateTeamVal(idx, 'draws', team.draws === num ? 0 : num)} 
+                                                        className={`w-7 h-7 rounded-full text-[10px] font-black ${team.draws >= num ? 'bg-indigo-500 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-400'}`}>
+                                                        {num}
+                                                    </button>
+                                                ))}
+                                                <button onClick={() => setWinningTeamId(team.id === winningTeamId ? null : team.id)} className={`ml-2 px-3 py-1.5 rounded-full text-[9px] font-black ${winningTeamId === team.id ? 'bg-green-500 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-400'}`}>OUT</button>
+                                            </div>
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <div className="space-y-1">
+                                                <label className="text-[9px] font-bold text-slate-400 uppercase italic">Clean</label>
+                                                <input type="number" inputMode="numeric" className="w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-900 dark:text-white" value={team.clean || ''} onChange={(e) => updateTeamVal(idx, 'clean', e.target.value)} placeholder="0" />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <label className="text-[9px] font-bold text-slate-400 uppercase italic">Dirty</label>
+                                                <input type="number" inputMode="numeric" className="w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-900 dark:text-white" value={team.dirty || ''} onChange={(e) => updateTeamVal(idx, 'dirty', e.target.value)} placeholder="0" />
+                                            </div>
+                                            {customBooks.map(book => (
+                                                <div key={book.id} className="space-y-1">
+                                                    <label className="text-[9px] font-bold text-slate-400 uppercase italic truncate block">{book.name}</label>
+                                                    <input type="number" inputMode="numeric" className="w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-900 dark:text-white border border-indigo-500/10" 
+                                                        value={team.customCounts[book.id] || ''} 
+                                                        onChange={(e) => {
+                                                            const nt = [...teams];
+                                                            nt[idx].customCounts = { ...nt[idx].customCounts, [book.id]: e.target.value };
+                                                            setTeams(nt);
+                                                        }} placeholder="0" />
+                                                </div>
+                                            ))}
+                                            <div className="space-y-1 col-span-2">
+                                                <label className="text-[9px] font-bold text-slate-400 uppercase italic">Face Value Total</label>
+                                                <input type="number" inputMode="numeric" className="w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-900 dark:text-white" value={team.cards || ''} onChange={(e) => updateTeamVal(idx, 'cards', e.target.value)} placeholder="0" />
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                                <button onClick={() => {
+                                    const roundData = teams.map(t => ({ name: t.name, score: calculateTeamRound(t) }));
+                                    setHistory([...history, { round: history.length + 1, data: roundData }]);
+                                    setTeams(teams.map(t => ({ ...t, clean: 0, dirty: 0, cards: 0, draws: 0, customCounts: {} })));
+                                    setWinningTeamId(null);
+                                    window.scrollTo(0,0);
+                                }} className="w-full bg-indigo-600 text-white font-black py-5 rounded-2xl shadow-xl uppercase tracking-widest text-sm">Save Round {history.length + 1}</button>
+                            </div>
+                        )}
+
+                        {view === 'settings' && (
+                            <div className="space-y-6 animate-pop text-left">
+                                <h2 className="text-xl font-black dark:text-white italic uppercase">Settings</h2>
+                                <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl space-y-6 shadow-md">
+                                    <div className="grid grid-cols-2 gap-4 border-b dark:border-slate-700 pb-4">
+                                        <div className="space-y-1">
+                                            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Exact Draw Bonus</label>
+                                            <input type="number" className="w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-900 font-black text-indigo-500" 
+                                                value={pointValues.drawBonus} onChange={(e) => setPointValues({...pointValues, drawBonus: parseInt(e.target.value) || 0})} />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Out Bonus</label>
+                                            <input type="number" className="w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-900 font-black text-indigo-500" 
+                                                value={pointValues.outBonus} onChange={(e) => setPointValues({...pointValues, outBonus: parseInt(e.target.value) || 0})} />
+                                        </div>
+                                    </div>
+                                    
+                                    <button onClick={() => setDarkMode(!darkMode)} className="w-full py-3 bg-slate-100 dark:bg-slate-900 dark:text-white rounded-xl font-bold uppercase text-xs">Toggle Dark Mode</button>
+                                    
+                                    <div className="pt-4 border-t dark:border-slate-700">
+                                        <button onClick={resetEntireGame} className="w-full py-4 bg-red-500/10 text-red-500 border-2 border-red-500/20 rounded-2xl font-black uppercase text-xs tracking-widest active:bg-red-500 active:text-white transition-colors">
+                                            Reset Entire Match
+                                        </button>
+                                        <p className="text-[10px] text-slate-400 mt-2 text-center font-bold">Resets history and all team scores to zero.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {view === 'privacy' && (
+                            <div className="animate-pop text-left space-y-4">
+                                <h2 className="text-xl font-black dark:text-white italic uppercase">Privacy Statement</h2>
+                                <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-md text-sm leading-relaxed dark:text-slate-300">
+                                    <p className="font-bold text-indigo-500 mb-2">Local Device Storage Only</p>
+                                    <p>Hand & Foot Ultimate Scorer stores all game scores, team configurations, and history exclusively on your device via <strong>LocalStorage</strong>. We do not transmit this data to any servers or external databases. Clearing your browser cache will erase your game history.</p>
+                                </div>
+                                <button onClick={() => setView('game')} className="w-full py-4 text-indigo-500 font-black uppercase text-xs underline">Back</button>
+                            </div>
+                        )}
+
+                        {view === 'history' && (
+                            <div className="space-y-4 animate-pop">
+                                <h2 className="text-xl font-black dark:text-white italic uppercase text-left">History</h2>
+                                {history.length === 0 ? <p className="text-slate-400 italic py-10">No rounds recorded yet.</p> : 
+                                history.map((h, i) => (
+                                    <div key={i} className="bg-white dark:bg-slate-800 p-4 rounded-xl text-left border dark:border-slate-700 shadow-sm">
+                                        <div className="text-[10px] font-black text-indigo-500 uppercase mb-2">Round {h.round}</div>
+                                        {h.data.map((d, idx) => (
+                                            <div key={idx} className="flex justify-between text-sm py-1 border-b dark:border-slate-700 last:border-0">
+                                                <span className="dark:text-white font-medium">{d.name}</span>
+                                                <span className="font-black dark:text-white">{d.score.toLocaleString()}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )).reverse()}
+                            </div>
+                        )}
+                    </main>
+
+                    <div className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-slate-900 border-t dark:border-slate-800 min-h-[60px] flex items-center justify-center">
+                        <ins className="adsbygoogle" style={{ display: 'block', width: '100%' }} data-ad-client="ca-pub-YOUR_CLIENT_ID" data-ad-slot="YOUR_AD_SLOT" data-ad-format="horizontal" data-full-width-responsive="true"></ins>
+                    </div>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>

@@ -3,8 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Hand & Foot Ultimate | Pro Scorer</title>
+    <title>Hand & Foot Ultimate Scorer | Pro Card Game Tracker</title>
     
+    <meta name="description" content="Professional Hand and Foot card game scorer. Track clean/dirty books, manage 2-5 teams, view round history, and read full game rules. Optimized for mobile PWA.">
+    <meta name="keywords" content="Hand and Foot, card game scorer, card game rules, score tracker, clean book, dirty book">
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#312e81">
     
@@ -15,20 +17,18 @@
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     
-    <script>
-        tailwind.config = { darkMode: 'class' }
-    </script>
+    <script>tailwind.config = { darkMode: 'class' }</script>
     <style>
         body { -webkit-tap-highlight-color: transparent; scroll-behavior: smooth; }
         .hide-scrollbar::-webkit-scrollbar { display: none; }
         input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
         .ad-padding { padding-bottom: 120px; }
+        .prose h2 { font-weight: 900; font-style: italic; margin-top: 1.5rem; color: #4338ca; }
+        .prose p { margin-bottom: 1rem; line-height: 1.6; }
     </style>
 </head>
 <body class="bg-slate-100 dark:bg-slate-900 transition-colors duration-300">
-    <div id="root">
-        <div class="flex items-center justify-center min-h-screen text-slate-500 font-sans text-xs font-black uppercase tracking-[0.2em]">Initialising...</div>
-    </div>
+    <div id="root"></div>
 
     <script type="text/babel">
         const { useState, useEffect } = React;
@@ -85,45 +85,36 @@
                 }, 0);
             };
 
-            const saveRound = () => {
-                const roundData = teams.map(t => ({ name: t.name, score: calculateTeamRound(t) }));
-                setHistory([...history, { round: history.length + 1, data: roundData }]);
-                setTeams(teams.map(t => ({ ...t, clean: 0, dirty: 0, cards: 0 })));
-                setWinningTeamId(null);
-                window.scrollTo(0,0);
-            };
-
             const shareResults = async () => {
-                const standings = teams
-                    .map(t => `${t.name}: ${getGrandTotal(t.name).toLocaleString()}`)
-                    .join('\n');
-                const text = `🏆 Hand & Foot Standings\n\n${standings}\n\nShared from Pro Scorer`;
-                
-                if (navigator.share) {
-                    try { await navigator.share({ title: 'Game Results', text }); } catch (e) {}
-                } else {
-                    alert('Sharing not supported on this browser. Copying to clipboard instead.');
-                    navigator.clipboard.writeText(text);
-                }
+                const standings = teams.map(t => `${t.name}: ${getGrandTotal(t.name).toLocaleString()}`).join('\n');
+                const text = `🏆 Hand & Foot Standings\n\n${standings}\n\nTracked with Hand & Foot Ultimate.`;
+                if (navigator.share) { try { await navigator.share({ title: 'Game Results', text }); } catch (e) {} }
+                else { alert('Results copied to clipboard!'); navigator.clipboard.writeText(text); }
             };
 
             return (
                 <div className="min-h-screen flex flex-col font-sans ad-padding">
                     <header className="bg-indigo-900 text-white p-5 flex justify-between items-center sticky top-0 z-50 shadow-lg">
                         <button onClick={() => setIsMenuOpen(true)} className="text-2xl p-2">☰</button>
-                        <h1 className="font-black italic text-xs tracking-[0.3em]">HAND & FOOT</h1>
+                        <h1 className="font-black italic text-xs tracking-[0.3em] cursor-pointer" onClick={() => setView('game')}>HAND & FOOT</h1>
                         <button onClick={shareResults} className="p-2 text-xl">📤</button>
                     </header>
 
                     {isMenuOpen && (
                         <div className="fixed inset-0 z-[100] flex">
-                            <div className="bg-white dark:bg-slate-900 w-72 h-full shadow-2xl p-8 flex flex-col space-y-6 animate-in slide-in-from-left">
-                                <button onClick={() => setIsMenuOpen(false)} className="text-slate-400 font-black text-left uppercase text-[10px]">✕ Close</button>
-                                <nav className="flex flex-col space-y-5 font-black text-xl dark:text-white italic">
+                            <div className="bg-white dark:bg-slate-900 w-72 h-full shadow-2xl p-8 flex flex-col space-y-6 overflow-y-auto">
+                                <button onClick={() => setIsMenuOpen(false)} className="text-slate-400 font-black text-left uppercase text-[10px]">✕ Close Menu</button>
+                                <nav className="flex flex-col space-y-5 font-black text-lg dark:text-white italic">
                                     <button onClick={() => { setView('game'); setIsMenuOpen(false); }}>🎮 SCORER</button>
                                     <button onClick={() => { setView('history'); setIsMenuOpen(false); }}>📊 HISTORY</button>
+                                    <button onClick={() => { setView('rules'); setIsMenuOpen(false); }}>📜 HOW TO PLAY</button>
                                     <button onClick={() => { setView('settings'); setIsMenuOpen(false); }}>⚙️ SETTINGS</button>
                                 </nav>
+                                <div className="pt-10 border-t dark:border-slate-800 flex flex-col space-y-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                                    <button onClick={() => { setView('privacy'); setIsMenuOpen(false); }}>Privacy Policy</button>
+                                    <button onClick={() => { setView('terms'); setIsMenuOpen(false); }}>Terms of Service</button>
+                                    <button onClick={() => { setView('about'); setIsMenuOpen(false); }}>About Developer</button>
+                                </div>
                             </div>
                             <div className="flex-1 bg-black/60 backdrop-blur-sm" onClick={() => setIsMenuOpen(false)}></div>
                         </div>
@@ -131,9 +122,9 @@
 
                     <main className="flex-1 max-w-lg mx-auto w-full p-4">
                         {view === 'game' && (
-                            <div className="space-y-4">
-                                <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-md border-b-4 border-indigo-500 transition-all">
-                                    <h2 className="text-[10px] font-black text-slate-400 uppercase mb-3 tracking-widest text-center">Live Standings</h2>
+                            <div className="space-y-4 animate-in fade-in zoom-in duration-300">
+                                <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-md border-b-4 border-indigo-500">
+                                    <h2 className="text-[10px] font-black text-slate-400 uppercase mb-3 text-center tracking-widest">Global Standings</h2>
                                     {teams.map(t => (
                                         <div key={t.id} className="flex justify-between items-center mb-2 border-b border-slate-50 dark:border-slate-700 pb-1">
                                             <span className="dark:text-white font-bold">{t.name}</span>
@@ -142,18 +133,12 @@
                                     ))}
                                 </div>
                                 {teams.map((team, idx) => (
-                                    <div key={team.id} className="bg-white dark:bg-slate-800 p-4 rounded-2xl border dark:border-slate-700 shadow-sm transition-all">
+                                    <div key={team.id} className="bg-white dark:bg-slate-800 p-4 rounded-2xl border dark:border-slate-700 shadow-sm">
                                         <div className="flex justify-between mb-4">
-                                            <input 
-                                                className="bg-transparent font-black text-slate-800 dark:text-white w-2/3 outline-none border-b border-transparent focus:border-indigo-500 transition-all" 
-                                                value={team.name} 
-                                                onChange={(e) => {
-                                                    const nt = [...teams]; 
-                                                    nt[idx].name = e.target.value; 
-                                                    setTeams(nt);
-                                                }} 
-                                            />
-                                            <button onClick={() => setWinningTeamId(team.id === winningTeamId ? null : team.id)} className={`text-[10px] px-4 py-1.5 rounded-full font-black transition-all ${winningTeamId === team.id ? 'bg-green-500 text-white shadow-lg' : 'bg-slate-100 dark:bg-slate-700 text-slate-400'}`}>OUT</button>
+                                            <input className="bg-transparent font-black text-slate-800 dark:text-white w-2/3 outline-none border-b border-transparent focus:border-indigo-500" value={team.name} onChange={(e) => {
+                                                const nt = [...teams]; nt[idx].name = e.target.value; setTeams(nt);
+                                            }} />
+                                            <button onClick={() => setWinningTeamId(team.id === winningTeamId ? null : team.id)} className={`text-[10px] px-4 py-1.5 rounded-full font-black ${winningTeamId === team.id ? 'bg-green-500 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-400'}`}>OUT</button>
                                         </div>
                                         <div className="grid grid-cols-2 gap-3">
                                             <div className="space-y-1">
@@ -165,8 +150,8 @@
                                                 <input type="number" inputMode="numeric" className="w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-900 dark:text-white outline-none focus:ring-2 ring-indigo-500" value={team.dirty || ''} onChange={(e) => { const nt = [...teams]; nt[idx].dirty = e.target.value; setTeams(nt); }} placeholder="0" />
                                             </div>
                                             <div className="space-y-1 col-span-2">
-                                                <label className="text-[9px] font-bold text-slate-400 uppercase italic">Cards Total (Face Value)</label>
-                                                <input type="number" inputMode="numeric" className="w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-900 dark:text-white outline-none focus:ring-2 ring-indigo-500" value={team.cards || ''} onChange={(e) => { const nt = [...teams]; nt[idx].cards = e.target.value; setTeams(nt); }} placeholder="0" />
+                                                <label className="text-[9px] font-bold text-slate-400 uppercase italic">Card Count Sum</label>
+                                                <input type="number" inputMode="numeric" className="w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-900 dark:text-white outline-none focus:ring-2 ring-indigo-500" value={team.cards || ''} onChange={(e) => { const nt = [...teams]; nt[idx].cards = e.target.value; setTeams(nt); }} placeholder="Face Value" />
                                             </div>
                                         </div>
                                     </div>
@@ -175,14 +160,49 @@
                             </div>
                         )}
 
+                        {view === 'rules' && (
+                            <div className="prose dark:text-slate-300 pb-10 animate-in slide-in-from-bottom duration-500">
+                                <h1 className="text-3xl font-black italic dark:text-white mb-6">How to Play Hand & Foot</h1>
+                                <p>Hand and Foot is a popular North American card game related to Canasta. It is typically played with 4 to 6 players in partnerships, using one more deck of cards than the number of players (including Jokers).</p>
+                                
+                                <h2>The Objective</h2>
+                                <p>The goal is to score the most points by creating "melds" and "books" (groups of cards of the same rank). A game consists of four rounds. The first player to play all cards from both their <strong>Hand</strong> and their <strong>Foot</strong> ends the round.</p>
+                                
+                                <h2>Dealing and Setup</h2>
+                                <p>Each player is dealt two stacks of cards: the "Hand" (usually 11-13 cards) and the "Foot" (usually 11-13 cards). Players look at their Hand first. The Foot remains face-down on the table until the Hand is completely played.</p>
+                                
+                                <h2>Melds and Books</h2>
+                                <p>A meld is a set of 3 to 6 cards of the same rank. A <strong>Book</strong> is a completed set of 7 cards. There are two main types:</p>
+                                <ul className="list-disc ml-5 mb-4">
+                                    <li><strong>Clean (Red) Book:</strong> 7 cards of the same rank with NO wild cards (500 pts).</li>
+                                    <li><strong>Dirty (Black) Book:</strong> 7 cards including 1 to 2 wild cards (300 pts).</li>
+                                </ul>
+                                
+                                <h2>Card Point Values</h2>
+                                <p>Beyond the book bonuses, each card has a face value:</p>
+                                <ul className="list-disc ml-5 mb-4">
+                                    <li>Jokers (Wild): 50 pts</li>
+                                    <li>2s (Wild): 20 pts</li>
+                                    <li>Aces: 20 pts</li>
+                                    <li>8 through Kings: 10 pts</li>
+                                    <li>4 through 7: 5 pts</li>
+                                    <li>Red 3s: 100 pts (Bonus or Penalty)</li>
+                                </ul>
+
+                                <h2>Winning the Game</h2>
+                                <p>To "Go Out," a team must have completed at least one clean book and one dirty book. The player must then play or discard the last card in their Foot. Once a player goes out, all other teams must subtract the value of the cards still in their hands from their total score.</p>
+                                <button onClick={() => setView('game')} className="w-full py-4 mt-6 bg-indigo-600 text-white rounded-xl font-bold">Start Scoring Now</button>
+                            </div>
+                        )}
+
                         {view === 'history' && (
-                            <div className="space-y-4">
-                                <h2 className="text-xl font-black italic dark:text-white">ROUND HISTORY</h2>
+                            <div className="space-y-4 animate-in fade-in duration-300">
+                                <h2 className="text-xl font-black italic dark:text-white uppercase tracking-tighter">Round History</h2>
                                 {history.length === 0 ? (
-                                    <div className="text-center py-20 text-slate-400 italic">No rounds saved yet.</div>
+                                    <div className="text-center py-20 text-slate-400 italic">No history yet. Start a game!</div>
                                 ) : (
                                     history.map((h, i) => (
-                                        <div key={i} className="bg-white dark:bg-slate-800 p-4 rounded-2xl border dark:border-slate-700 shadow-sm animate-in fade-in">
+                                        <div key={i} className="bg-white dark:bg-slate-800 p-4 rounded-2xl border dark:border-slate-700">
                                             <div className="text-[10px] font-black text-indigo-500 uppercase mb-2">Round {h.round}</div>
                                             {h.data.map((d, idx) => (
                                                 <div key={idx} className="flex justify-between text-sm py-1 border-b border-slate-50 dark:border-slate-700 last:border-0">
@@ -193,40 +213,42 @@
                                         </div>
                                     )).reverse()
                                 )}
-                                <button onClick={() => setView('game')} className="w-full py-4 text-indigo-500 font-bold text-sm">← Back to Scorer</button>
                             </div>
                         )}
-                        
+
+                        {view === 'privacy' && (
+                            <div className="prose dark:text-slate-300 pb-10 text-sm">
+                                <h1 className="text-xl font-black dark:text-white mb-4 uppercase">Privacy Policy</h1>
+                                <p>We value your privacy. This application, Hand & Foot Ultimate Scorer, does not collect personal identifiable information. All game data is stored locally on your device via browser LocalStorage.</p>
+                                <h2>Advertising</h2>
+                                <p>This site uses Google AdSense to serve advertisements. Third-party vendors, including Google, use cookies to serve ads based on a user's prior visits to this website or other websites. Google's use of advertising cookies enables it and its partners to serve ads to users based on their visit to your sites and/or other sites on the Internet.</p>
+                                <p>Users may opt out of personalized advertising by visiting <a href="https://www.google.com/settings/ads" className="text-indigo-500 underline">Ads Settings</a>.</p>
+                                <button onClick={() => setView('game')} className="mt-6 text-indigo-500 font-bold">Back to Game</button>
+                            </div>
+                        )}
+
                         {view === 'settings' && (
-                            <div className="space-y-6 dark:text-white p-2">
-                                <h2 className="text-xl font-black italic uppercase tracking-wider">Settings</h2>
-                                <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl space-y-6 shadow-sm">
+                            <div className="space-y-6 dark:text-white">
+                                <h2 className="text-xl font-black italic uppercase">Settings</h2>
+                                <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl space-y-6">
                                     <div className="flex justify-between items-center">
-                                        <label className="font-bold text-xs uppercase text-slate-500">Number of Teams</label>
+                                        <label className="font-bold text-xs uppercase text-slate-500 tracking-widest">Team Count</label>
                                         <div className="flex items-center gap-4 bg-slate-100 dark:bg-slate-900 rounded-xl p-1">
-                                            <button onClick={() => updateTeamCount(teams.length - 1)} className="w-10 h-10 font-bold text-xl text-indigo-500 active:scale-90">-</button>
+                                            <button onClick={() => updateTeamCount(teams.length - 1)} className="w-10 h-10 font-bold text-xl text-indigo-500">-</button>
                                             <span className="font-black text-indigo-500">{teams.length}</span>
-                                            <button onClick={() => updateTeamCount(teams.length + 1)} className="w-10 h-10 font-bold text-xl text-indigo-500 active:scale-90">+</button>
+                                            <button onClick={() => updateTeamCount(teams.length + 1)} className="w-10 h-10 font-bold text-xl text-indigo-500">+</button>
                                         </div>
                                     </div>
-                                    <div className="grid grid-cols-2 gap-4 border-t dark:border-slate-700 pt-4">
-                                        <div className="space-y-1 text-center">
-                                            <label className="text-[10px] font-bold text-slate-500">CLEAN</label>
-                                            <input type="number" className="w-full p-2 rounded-lg bg-slate-50 dark:bg-slate-900 font-black border dark:border-slate-700 text-center text-indigo-500" value={pointValues.clean} onChange={(e) => setPointValues({...pointValues, clean: parseInt(e.target.value) || 0})} />
-                                        </div>
-                                        <div className="space-y-1 text-center">
-                                            <label className="text-[10px] font-bold text-slate-500">DIRTY</label>
-                                            <input type="number" className="w-full p-2 rounded-lg bg-slate-50 dark:bg-slate-900 font-black border dark:border-slate-700 text-center text-indigo-500" value={pointValues.dirty} onChange={(e) => setPointValues({...pointValues, dirty: parseInt(e.target.value) || 0})} />
-                                        </div>
+                                    <div className="pt-4 border-t dark:border-slate-700 space-y-4">
+                                        <button onClick={() => setDarkMode(!darkMode)} className="w-full py-3 bg-indigo-500 text-white rounded-xl font-bold uppercase text-xs tracking-widest">Toggle {darkMode ? 'Light' : 'Dark'} Mode</button>
+                                        <button onClick={() => { if(confirm("Erase all data?")) { setHistory([]); setView('game'); } }} className="w-full py-3 text-red-500 border border-red-500/20 rounded-xl font-black text-xs">RESET GAME</button>
                                     </div>
-                                    <button onClick={() => setDarkMode(!darkMode)} className="w-full py-3 bg-indigo-500 text-white rounded-xl font-bold uppercase text-xs tracking-widest shadow-lg shadow-indigo-500/30 active:scale-95 transition-transform">{darkMode ? '☀️ Switch to Light' : '🌙 Switch to Dark'}</button>
                                 </div>
-                                <button onClick={() => { if(confirm("This will permanently delete ALL scores. Continue?")) { setHistory([]); setView('game'); } }} className="w-full py-4 text-red-500 border-2 border-red-500/20 rounded-2xl font-black text-xs tracking-[0.2em]">RESET ENTIRE GAME</button>
                             </div>
                         )}
                     </main>
 
-                    {/* Fixed Ad Container */}
+                    {/* AdSense Fixed Anchor */}
                     <div className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-slate-900 border-t dark:border-slate-800 min-h-[60px]">
                         <div className="max-w-lg mx-auto text-center">
                             <ins className="adsbygoogle"
